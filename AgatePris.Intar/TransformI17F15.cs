@@ -71,6 +71,7 @@ namespace AgatePris.Intar {
 #endif
         Vector3I17F15 localEulerAnglesHint;
 
+        QuaternionI17F15? localRotation;
         Matrix4x4I17F15? localToWorldMatrix;
         Vector3I17F15? position;
 
@@ -104,7 +105,6 @@ namespace AgatePris.Intar {
                 position = null;
             }
         }
-
         public Vector3I17F15 LocalScale {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => localScale;
@@ -117,41 +117,54 @@ namespace AgatePris.Intar {
                 localToWorldMatrix = null;
             }
         }
-
-        public Vector3I17F15 LocalEulerAngles {
+        public QuaternionI17F15 LocalRotation {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => localEulerAnglesHint;
+            private get {
+                // ユーザは値を明示的にセットすることができる｡
+                // よって､ ユーザーは `LocalRotation` が参照される前に明示的に値をセットすることで､
+                // オイラー角から四元数に変換する際のアルゴリズムを選択することができる｡
+                // (それによって､ 変換時の計算の速度や精度の選択権を得る｡ )
+                // もし明示的に四元数で値がセットされていなかった場合､
+                // QuaternionI17F15.EulerZxyP5A51437 で値を計算しキャッシュする｡
+                if (!localRotation.HasValue) {
+                    localRotation = QuaternionI17F15.EulerZxyP5A51437(localEulerAnglesHint);
+                }
+                return localRotation.Value;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set {
-                if (localEulerAnglesHint == value) {
-                    return;
+                if (localRotation.HasValue) {
+                    if (localRotation.Value == value) {
+                        return;
+                    }
                 }
-                localEulerAnglesHint = value;
-                localToWorldMatrix = null;
+                localRotation = value;
             }
         }
 
         public Matrix4x4I17F15 LocalToWorldMatrix {
             get {
-                if (localToWorldMatrix.HasValue) {
-                    return localToWorldMatrix.Value;
+                if (!localToWorldMatrix.HasValue) {
+                    var m = Matrix4x4I17F15.TRS(localPosition, LocalRotation, localScale);
+                    localToWorldMatrix
+                        = parent != null
+                        ? parent.LocalToWorldMatrix.SaturatingProduct(m)
+                        : m;
                 }
-                if (parent != null) {
-                    throw new NotImplementedException();
-                }
-                throw new NotImplementedException();
+                return localToWorldMatrix.Value;
             }
         }
 
         public Vector3I17F15 Position {
             get {
-                if (position.HasValue) {
-                    return position.Value;
+                if (!position.HasValue) {
+                    if (parent != null) {
+                        throw new NotImplementedException();
+                    } else {
+                        position = localPosition;
+                    }
                 }
-                if (parent != null) {
-                    throw new NotImplementedException();
-                }
-                return localPosition;
+                return position.Value;
             }
         }
 

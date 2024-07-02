@@ -46,12 +46,12 @@ namespace AgatePris.Intar {
         // ---------------------------------------
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Matrix4x4I17F15 SaturatingMul(Matrix4x4I17F15 left, Matrix4x4I17F15 right) {
+        public Matrix4x4I17F15 SaturatingProduct(Matrix4x4I17F15 right) {
             return new Matrix4x4I17F15(
-                left.C0.SaturatingMul(right.C0.X).SaturatingAdd(left.C1.SaturatingMul(right.C0.Y)).SaturatingAdd(left.C2.SaturatingMul(right.C0.Z)).SaturatingAdd(left.C3.SaturatingMul(right.C0.W)),
-                left.C0.SaturatingMul(right.C1.X).SaturatingAdd(left.C1.SaturatingMul(right.C1.Y)).SaturatingAdd(left.C2.SaturatingMul(right.C1.Z)).SaturatingAdd(left.C3.SaturatingMul(right.C1.W)),
-                left.C0.SaturatingMul(right.C2.X).SaturatingAdd(left.C1.SaturatingMul(right.C2.Y)).SaturatingAdd(left.C2.SaturatingMul(right.C2.Z)).SaturatingAdd(left.C3.SaturatingMul(right.C2.W)),
-                left.C0.SaturatingMul(right.C3.X).SaturatingAdd(left.C1.SaturatingMul(right.C3.Y)).SaturatingAdd(left.C2.SaturatingMul(right.C3.Z)).SaturatingAdd(left.C3.SaturatingMul(right.C3.W)));
+                C0.SaturatingMul(right.C0.X).SaturatingAdd(C1.SaturatingMul(right.C0.Y)).SaturatingAdd(C2.SaturatingMul(right.C0.Z)).SaturatingAdd(C3.SaturatingMul(right.C0.W)),
+                C0.SaturatingMul(right.C1.X).SaturatingAdd(C1.SaturatingMul(right.C1.Y)).SaturatingAdd(C2.SaturatingMul(right.C1.Z)).SaturatingAdd(C3.SaturatingMul(right.C1.W)),
+                C0.SaturatingMul(right.C2.X).SaturatingAdd(C1.SaturatingMul(right.C2.Y)).SaturatingAdd(C2.SaturatingMul(right.C2.Z)).SaturatingAdd(C3.SaturatingMul(right.C2.W)),
+                C0.SaturatingMul(right.C3.X).SaturatingAdd(C1.SaturatingMul(right.C3.Y)).SaturatingAdd(C2.SaturatingMul(right.C3.Z)).SaturatingAdd(C3.SaturatingMul(right.C3.W)));
         }
 
         // Object
