@@ -25,16 +25,36 @@ namespace Intar.Tests {
             Assert.IsTrue(I17F15.Zero == k.Value);
             Assert.IsTrue(I17F15.Zero == k.InTangent);
             Assert.IsTrue(I17F15.Zero == k.OutTangent);
+            Assert.IsTrue(WeightedMode.None == k.WeightedMode);
+            Assert.IsTrue(I17F15.Zero == k.InWeight);
+            Assert.IsTrue(I17F15.Zero == k.OutWeight);
             k = new KeyframeI17F15(a, b);
             Assert.IsTrue(a == k.Time);
             Assert.IsTrue(b == k.Value);
             Assert.IsTrue(I17F15.Zero == k.InTangent);
             Assert.IsTrue(I17F15.Zero == k.OutTangent);
+            Assert.IsTrue(WeightedMode.None == k.WeightedMode);
+            Assert.IsTrue(I17F15.Zero == k.InWeight);
+            Assert.IsTrue(I17F15.Zero == k.OutWeight);
             k = new KeyframeI17F15(b, c, d, e);
             Assert.IsTrue(b == k.Time);
             Assert.IsTrue(c == k.Value);
             Assert.IsTrue(d == k.InTangent);
             Assert.IsTrue(e == k.OutTangent);
+            Assert.IsTrue(WeightedMode.None == k.WeightedMode);
+            Assert.IsTrue(I17F15.Zero == k.InWeight);
+            Assert.IsTrue(I17F15.Zero == k.OutWeight);
+
+            // UnityEngine.Keyframe の同形式のコンストラクタと同様に
+            // WeightedMode が Both に設定されることをテスト.
+            k = new KeyframeI17F15(a, b, c, d, d, e);
+            Assert.IsTrue(a == k.Time);
+            Assert.IsTrue(b == k.Value);
+            Assert.IsTrue(c == k.InTangent);
+            Assert.IsTrue(d == k.OutTangent);
+            Assert.IsTrue(WeightedMode.Both == k.WeightedMode);
+            Assert.IsTrue(d == k.InWeight);
+            Assert.IsTrue(e == k.OutWeight);
         }
 
         [Test]
@@ -648,6 +668,268 @@ namespace Intar.Tests {
                             break;
                         }
                         Utility.AssertAreEqual(expected, actual, $"time:{t} preWrapMode:{pre} postWrapMode:{post} expected:{expected} actual:{actual}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 重み付きベジェ補間の倍精度による参照実装.
+        /// 実装と同様, 時間を単位区間に正規化し x(t) = u を
+        /// 二分探索で解いた後 y(t) を評価する.
+        /// </summary>
+        static double BezierReference(
+            double time,
+            double outTime, double outValue, double outTangent, double outWeight,
+            double inTime, double inValue, double inTangent, double inWeight
+        ) {
+            var dx = inTime - outTime;
+            var u = (time - outTime) / dx;
+            var x1 = outWeight;
+            var x2 = 1 - inWeight;
+            var a = 1 + (3 * (x1 - x2));
+            var b = 3 * (x2 - (2 * x1));
+            var c = 3 * x1;
+            double lo = 0;
+            double hi = 1;
+            for (var i = 0; i < 64; i++) {
+                var mid = 0.5 * (lo + hi);
+                var x = (((((a * mid) + b) * mid) + c) * mid);
+                if (x <= u) {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            var t = lo;
+            var y0 = outValue;
+            var y3 = inValue;
+            var y1 = y0 + (outWeight * dx * outTangent);
+            var y2 = y3 - (inWeight * dx * inTangent);
+            var d = y3 - y0 + (3 * (y1 - y2));
+            var e = (3 * (y0 + y2)) - (6 * y1);
+            var f = 3 * (y1 - y0);
+            return (((((d * t) + e) * t) + f) * t) + y0;
+        }
+
+        /// <summary>
+        /// 両端の重みが 0 の場合, タンジェントに関わらず
+        /// キーとキーを結ぶ直線になることをテスト.
+        /// (制御点がキーと一致するため.)
+        /// </summary>
+        [Test]
+        public static void TestEvaluateWeightedZeroWeightI17F15() {
+            var curve = new AnimationCurveI17F15();
+            _ = curve.AddKey(new KeyframeI17F15(
+                (I17F15)0, (I17F15)1, (I17F15)100, (I17F15)100,
+                I17F15.Zero, I17F15.Zero
+            ));
+            _ = curve.AddKey(new KeyframeI17F15(
+                (I17F15)1, (I17F15)3, (I17F15)(-100), (I17F15)(-100),
+                I17F15.Zero, I17F15.Zero
+            ));
+            for (var i = 0; i <= 16; i++) {
+                var time = I17F15.FromBits(i * (I17F15.OneRepr / 16));
+                var expected = 1 + (2 * (double)time);
+                var actual = (double)curve.Evaluate(time);
+                Utility.AssertAreEqual(expected, actual, 4.0 / 32768, $"time:{time}");
+            }
+        }
+
+        /// <summary>
+        /// 両端の重みが 1 の対称なカーブのテスト.
+        /// t = 1/2 において x'(t) = 0 となるため,
+        /// ニュートン法では求解が困難なケースである.
+        /// </summary>
+        [Test]
+        public static void TestEvaluateWeightedOneWeightI17F15() {
+            var curve = new AnimationCurveI17F15();
+            _ = curve.AddKey(new KeyframeI17F15(
+                (I17F15)0, (I17F15)0, I17F15.Zero, I17F15.Zero,
+                I17F15.One, I17F15.One
+            ));
+            _ = curve.AddKey(new KeyframeI17F15(
+                (I17F15)1, (I17F15)1, I17F15.Zero, I17F15.Zero,
+                I17F15.One, I17F15.One
+            ));
+
+            // 端点は正確に評価されることをテスト.
+            Utility.AssertAreEqual((I17F15)0, curve.Evaluate((I17F15)0));
+            Utility.AssertAreEqual((I17F15)1, curve.Evaluate((I17F15)1));
+
+            // 対称性より中点の評価値は 1/2 になる.
+            // ただしこの点はカーブの接線が垂直になるため,
+            // 時間の微少な変化に対する評価値の感度が本質的に高い.
+            // (これは浮動小数点による実装でも同様である.)
+            Utility.AssertAreEqual(0.5, (double)curve.Evaluate((I17F15)0.5), 2e-3);
+
+            // 単調非減少であることをテスト.
+            var prev = curve.Evaluate(I17F15.Zero);
+            for (var i = 1; i <= 64; i++) {
+                var time = I17F15.FromBits(i * (I17F15.OneRepr / 64));
+                var value = curve.Evaluate(time);
+                Assert.IsTrue(prev <= value, $"time:{time} prev:{prev} value:{value}");
+                prev = value;
+            }
+        }
+
+        /// <summary>
+        /// 補間に使用されない側の重みフラグは
+        /// 補間結果に影響しないことをテスト.
+        /// (左キーの In, 右キーの Out は補間に使用されない.)
+        /// </summary>
+        [Test]
+        public static void TestEvaluateWeightedUnusedWeightI17F15() {
+            var expected = new AnimationCurveI17F15();
+            _ = expected.AddKey(new KeyframeI17F15((I17F15)0, (I17F15)0, (I17F15)1, (I17F15)1));
+            _ = expected.AddKey(new KeyframeI17F15((I17F15)1, (I17F15)1, (I17F15)(-2), (I17F15)(-2)));
+
+            var actual = new AnimationCurveI17F15();
+            _ = actual.AddKey(new KeyframeI17F15((I17F15)0, (I17F15)0, (I17F15)1, (I17F15)1) {
+                WeightedMode = WeightedMode.In,
+                InWeight = I17F15.One,
+                OutWeight = I17F15.One,
+            });
+            _ = actual.AddKey(new KeyframeI17F15((I17F15)1, (I17F15)1, (I17F15)(-2), (I17F15)(-2)) {
+                WeightedMode = WeightedMode.Out,
+                InWeight = I17F15.One,
+                OutWeight = I17F15.One,
+            });
+
+            // 補間に使用されない側の重みのみが設定されている場合,
+            // 重み無しの補間と完全に一致する.
+            for (var i = 0; i <= 32; i++) {
+                var time = I17F15.FromBits(i * (I17F15.OneRepr / 32));
+                Utility.AssertAreEqual(expected.Evaluate(time), actual.Evaluate(time), $"time:{time}");
+            }
+        }
+
+        /// <summary>
+        /// 重みが 1/3 の場合, 重み無しの 3 次エルミート補間と
+        /// 同一の曲線になることをテスト.
+        /// </summary>
+        [Test]
+        public static void TestEvaluateWeightedDefaultWeightI17F15() {
+            var oneThird = I17F15.FromBits((I17F15.OneRepr + 1) / 3);
+            var hermite = new AnimationCurveI17F15();
+            _ = hermite.AddKey(new KeyframeI17F15((I17F15)0, (I17F15)0, (I17F15)2, (I17F15)2));
+            _ = hermite.AddKey(new KeyframeI17F15((I17F15)1, (I17F15)1, (I17F15)(-1), (I17F15)(-1)));
+
+            var weighted = new AnimationCurveI17F15();
+            _ = weighted.AddKey(new KeyframeI17F15(
+                (I17F15)0, (I17F15)0, (I17F15)2, (I17F15)2, oneThird, oneThird
+            ));
+            _ = weighted.AddKey(new KeyframeI17F15(
+                (I17F15)1, (I17F15)1, (I17F15)(-1), (I17F15)(-1), oneThird, oneThird
+            ));
+
+            // 1/3 は I17F15 で正確に表現できないため僅かな誤差を許容する.
+            for (var i = 0; i <= 32; i++) {
+                var time = I17F15.FromBits(i * (I17F15.OneRepr / 32));
+                var e = (double)hermite.Evaluate(time);
+                var a = (double)weighted.Evaluate(time);
+                Utility.AssertAreEqual(e, a, 1e-3, $"time:{time}");
+            }
+        }
+
+        /// <summary>
+        /// [0, 1] の範囲外の重みは評価時にクランプされることをテスト.
+        /// </summary>
+        [Test]
+        public static void TestEvaluateWeightedClampI17F15() {
+            AnimationCurveI17F15 MakeCurve(I17F15 w0, I17F15 w1) {
+                var curve = new AnimationCurveI17F15();
+                _ = curve.AddKey(new KeyframeI17F15(
+                    (I17F15)0, (I17F15)0, (I17F15)1, (I17F15)1, w0, w0
+                ));
+                _ = curve.AddKey(new KeyframeI17F15(
+                    (I17F15)1, (I17F15)1, (I17F15)(-1), (I17F15)(-1), w1, w1
+                ));
+                return curve;
+            }
+            var expected = MakeCurve(I17F15.One, I17F15.Zero);
+            var actual = MakeCurve((I17F15)2, (I17F15)(-1));
+            for (var i = 0; i <= 32; i++) {
+                var time = I17F15.FromBits(i * (I17F15.OneRepr / 32));
+                Utility.AssertAreEqual(expected.Evaluate(time), actual.Evaluate(time), $"time:{time}");
+            }
+        }
+
+        /// <summary>
+        /// 重み付きの補間を倍精度の参照実装と比較するテスト.
+        /// </summary>
+        /// <remarks>
+        /// カーブの接線が垂直に近い点では時間の微少な変化に対する
+        /// 評価値の感度が本質的に高く, 単純な絶対誤差での比較は適さない.
+        /// そのため参照実装を時間の近傍でも評価し, その範囲を
+        /// 許容誤差だけ広げた区間に評価値が収まることを確認する.
+        /// </remarks>
+        [TestCase(1000)]
+        public static void TestEvaluateWeightedRandomI17F15(int testCount) {
+            var rng = new Xoroshiro128StarStar(1, 2);
+            for (var testIndex = 0; testIndex < testCount; testIndex++) {
+                var outTime = I17F15.FromBits(rng.Next(-4 * I17F15.OneRepr, 4 * I17F15.OneRepr));
+                var inTime = outTime + I17F15.FromBits(rng.Next(32, 4 * I17F15.OneRepr));
+                var outValue = I17F15.FromBits(rng.Next(-8 * I17F15.OneRepr, 8 * I17F15.OneRepr));
+                var inValue = I17F15.FromBits(rng.Next(-8 * I17F15.OneRepr, 8 * I17F15.OneRepr));
+                var outTangent = I17F15.FromBits(rng.Next(-16 * I17F15.OneRepr, 16 * I17F15.OneRepr));
+                var inTangent = I17F15.FromBits(rng.Next(-16 * I17F15.OneRepr, 16 * I17F15.OneRepr));
+                var outWeight = I17F15.FromBits(rng.Next(0, I17F15.OneRepr + 1));
+                var inWeight = I17F15.FromBits(rng.Next(0, I17F15.OneRepr + 1));
+                var mode = (WeightedMode)rng.Next(1, 4);
+
+                var curve = new AnimationCurveI17F15();
+                _ = curve.AddKey(new KeyframeI17F15(
+                    outTime, outValue, outTangent, outTangent, outWeight, outWeight
+                ) {
+                    WeightedMode = mode,
+                });
+                _ = curve.AddKey(new KeyframeI17F15(
+                    inTime, inValue, inTangent, inTangent, inWeight, inWeight
+                ) {
+                    WeightedMode = mode,
+                });
+
+                // キーの時間ではキーの値が正確に評価されることをテスト.
+                Utility.AssertAreEqual(outValue, curve.Evaluate(outTime));
+                Utility.AssertAreEqual(inValue, curve.Evaluate(inTime));
+
+                // 補間に使用される重み. 重みを持たない側は 1/3.
+                var ow = (mode & WeightedMode.Out) != 0 ? (double)outWeight : 1.0 / 3;
+                var iw = (mode & WeightedMode.In) != 0 ? (double)inWeight : 1.0 / 3;
+
+                for (var i = 0; i < 32; i++) {
+                    var time = outTime + I17F15.FromBits(
+                        (int)(rng.NextInt64(1, (inTime - outTime).Bits))
+                    );
+                    var actual = (double)curve.Evaluate(time);
+
+                    // 時間の近傍 (前後 2 LSB) で参照実装を評価する.
+                    var h = 2.0 / 32768;
+                    var lo = double.MaxValue;
+                    var hi = double.MinValue;
+                    for (var j = -1; j <= 1; j++) {
+                        var t = Math.Max(
+                            (double)outTime,
+                            Math.Min((double)inTime, (double)time + (j * h))
+                        );
+                        var y = BezierReference(
+                            t,
+                            (double)outTime, (double)outValue, (double)outTangent, ow,
+                            (double)inTime, (double)inValue, (double)inTangent, iw
+                        );
+                        lo = Math.Min(lo, y);
+                        hi = Math.Max(hi, y);
+                    }
+                    const double delta = 5e-3;
+                    if (actual < lo - delta || actual > hi + delta) {
+                        Assert.Fail(
+                            $"testIndex:{testIndex} time:{time} actual:{actual} " +
+                            $"expected:[{lo}, {hi}] outTime:{outTime} inTime:{inTime} " +
+                            $"outValue:{outValue} inValue:{inValue} " +
+                            $"outTangent:{outTangent} inTangent:{inTangent} " +
+                            $"outWeight:{outWeight} inWeight:{inWeight} mode:{mode}"
+                        );
                     }
                 }
             }

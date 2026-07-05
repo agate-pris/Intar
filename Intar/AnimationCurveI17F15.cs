@@ -11,14 +11,12 @@ using UnityEngine;
 #endif
 
 namespace Intar {
-#if false // 未実装
     public enum WeightedMode {
-        None,
-        In,
-        Out,
-        Both,
+        None = 0,
+        In = 1,
+        Out = 2,
+        Both = 3,
     }
-#endif
 
     enum TangentMode {
         Free,
@@ -42,11 +40,13 @@ namespace Intar {
         [SerializeField]
 #endif // UNITY_5_3_OR_NEWER
         internal int tangentMode;
-#if false // 未実装
+#pragma warning disable IDE0079 // 不要な抑制を削除します
+#pragma warning disable CA1051 // 参照可能なインスタンス フィールドを宣言しません
         public WeightedMode WeightedMode;
         public I17F15 InWeight;
         public I17F15 OutWeight;
-#endif
+#pragma warning restore CA1051 // 参照可能なインスタンス フィールドを宣言しません
+#pragma warning restore IDE0079 // 不要な抑制を削除します
         public KeyframeI17F15(
             I17F15 time, I17F15 value,
             I17F15 inTangent, I17F15 outTangent
@@ -56,15 +56,43 @@ namespace Intar {
             InTangent = inTangent;
             OutTangent = outTangent;
             tangentMode = 0;
+            WeightedMode = WeightedMode.None;
+            InWeight = I17F15.Zero;
+            OutWeight = I17F15.Zero;
         }
         public KeyframeI17F15(
             I17F15 time, I17F15 value
         ) : this(time, value, I17F15.Zero, I17F15.Zero) { }
+
+        /// <summary>
+        /// <c>UnityEngine.Keyframe</c> の同形式のコンストラクタと同様に
+        /// <c>WeightedMode</c> を <c>WeightedMode.Both</c> に設定する.
+        /// </summary>
+        public KeyframeI17F15(
+            I17F15 time, I17F15 value,
+            I17F15 inTangent, I17F15 outTangent,
+            I17F15 inWeight, I17F15 outWeight
+        ) {
+            Time = time;
+            Value = value;
+            InTangent = inTangent;
+            OutTangent = outTangent;
+            tangentMode = 0;
+            WeightedMode = WeightedMode.Both;
+            InWeight = inWeight;
+            OutWeight = outWeight;
+        }
         internal TangentMode GetLeftTangentMode() {
             return (TangentMode)((tangentMode >> 1) & 0b1111);
         }
         internal TangentMode GetRightTangentMode() {
             return (TangentMode)((tangentMode >> 5) & 0b1111);
+        }
+        internal bool HasInWeight() {
+            return (WeightedMode & WeightedMode.In) != WeightedMode.None;
+        }
+        internal bool HasOutWeight() {
+            return (WeightedMode & WeightedMode.Out) != WeightedMode.None;
         }
     }
 
@@ -124,6 +152,123 @@ namespace Intar {
             var bits = Mul(t, a) + b;
             bits = Mul(t, bits) + m0;
             bits = Mul(t, bits) + p0;
+            return I17F15.FromBits((int)bits);
+        }
+
+        /// <summary>
+        /// 重みを Q30 固定小数点に変換する.
+        /// <c>UnityEngine.AnimationCurve</c> と同様,
+        /// 重みは [0, 1] の範囲にクランプする.
+        /// </summary>
+        static long WeightBits(I17F15 weight) {
+            var bits = weight.Bits;
+            bits = bits < 0 ? 0 : bits;
+            bits = bits > I17F15.OneRepr ? I17F15.OneRepr : bits;
+            return (long)bits << 15;
+        }
+
+        internal static I17F15 BezierInterpolate(I17F15 time,
+            KeyframeI17F15 left,
+            KeyframeI17F15 right,
+            I17F15 defaultValue) {
+
+            if (left.Time == right.Time) {
+                return defaultValue;
+            }
+
+            // 重み付きの補間は 3 次ベジェ曲線 (x(t), y(t)) の評価に帰着する.
+            // x(t) = time を満たす媒介変数 t を求め, その t で y(t) を評価する.
+            // 計算は以下の手順で行う.
+            //
+            // 1. 時間を単位区間 [0, 1] に正規化する.
+            //    重みは [0, 1] にクランプされるため, 正規化により
+            //    x 方向のベジェ制御点もすべて [0, 1] に収まる.
+            //    これにより x 方向の計算を Q30 固定小数点で行える.
+            // 2. x(t) = u を満たす t を二分探索で求める.
+            //    重みが [0, 1] の範囲にある限り x(t) は単調非減少であるため,
+            //    t の各ビットを上位から順に確定させる二分探索で解ける.
+            //    ニュートン法と異なり除算を使用しないため微少な値同士の除算による
+            //    精度の低下がなく, x'(t) = 0 となる点 (重みが両側とも 1 の場合
+            //    t = 1/2 で生じる) があっても問題ない. また反復回数が入力に
+            //    依存しないため結果は決定論的である.
+            // 3. 求めた t で y(t) を評価する.
+
+            const long one = 1L << 30;
+
+            var dx = right.Time.WideBits - left.Time.Bits;
+
+            // 時間を単位区間に正規化する (Q30). 呼び出し元で
+            // left.Time <= time < right.Time が保証されているため
+            // u は [0, 1) の範囲に収まる.
+            var u = ((time.WideBits - left.Time.Bits) << 30) / dx;
+
+            // 重みを持たない側の重みは 1/3 として扱う.
+            // (UnityEngine.AnimationCurve 準拠)
+            var outWeight = left.HasOutWeight() ? WeightBits(left.OutWeight) : one / 3;
+            var inWeight = right.HasInWeight() ? WeightBits(right.InWeight) : one / 3;
+
+            // x 方向のベジェ制御点 (Q30). 時間の正規化により
+            // x0 = 0, x3 = 1 となるため制御点は重みのみから決まる.
+            //
+            // x1 = outWeight
+            // x2 = 1 - inWeight
+            //
+            // x(t) = 3 * (1 - t)^2 * t * x1 + 3 * (1 - t) * t^2 * x2 + t^3
+            //      = ((a * t + b) * t + c) * t
+            //
+            // a = 1 + 3 * (x1 - x2)
+            // b = 3 * (x2 - 2 * x1)
+            // c = 3 * x1
+            //
+            // x1, x2 が [0, 1] に収まるため, t が [0, 1] の範囲において
+            // ホーナー法の中間値はすべて 64 ビットに収まる.
+            // (|a| <= 4, |b| <= 6, |c| <= 3, |a * t + b| <= 6,
+            // |(a * t + b) * t + c| <= 3)
+            var x1 = outWeight;
+            var x2 = one - inWeight;
+            var a = one + (3 * (x1 - x2));
+            var b = 3 * (x2 - (2 * x1));
+            var c = 3 * x1;
+
+            // x(t) <= u を満たす最大の t を二分探索で求める (Q30).
+            long t = 0;
+            for (var bit = one >> 1; bit != 0; bit >>= 1) {
+                var tt = t | bit;
+                var x = (a * tt / one) + b;
+                x = (x * tt / one) + c;
+                x = x * tt / one;
+                if (x <= u) {
+                    t = tt;
+                }
+            }
+
+            // y 方向のベジェ制御点 (Q15).
+            //
+            // y1 = y0 + outWeight * dx * outTangent
+            // y2 = y3 - inWeight * dx * inTangent
+            //
+            // 極端な値が与えられた場合オーバーフローを引き起こすが許容する.
+            var owdx = outWeight * dx / one;
+            var iwdx = inWeight * dx / one;
+            var y0 = (long)left.Value.Bits;
+            var y3 = (long)right.Value.Bits;
+            var y1 = y0 + Mul(left.OutTangent.Bits, owdx);
+            var y2 = y3 - Mul(right.InTangent.Bits, iwdx);
+
+            // y(t) = (1 - t)^3 * y0 + 3 * (1 - t)^2 * t * y1
+            //      + 3 * (1 - t) * t^2 * y2 + t^3 * y3
+            //      = ((d * t + e) * t + f) * t + y0
+            //
+            // d = y3 - y0 + 3 * (y1 - y2)
+            // e = 3 * (y0 + y2) - 6 * y1
+            // f = 3 * (y1 - y0)
+            var d = y3 - y0 + (3 * (y1 - y2));
+            var e = (3 * (y0 + y2)) - (6 * y1);
+            var f = 3 * (y1 - y0);
+
+            var bits = (d * t / one) + e;
+            bits = (bits * t / one) + f;
+            bits = (bits * t / one) + y0;
             return I17F15.FromBits((int)bits);
         }
     }
@@ -247,62 +392,6 @@ namespace Intar {
         }
         #endregion
         #region Evaluate
-        // 重み付きの場合、ニュートン法で解く必要がある。
-        // 現時点では未実装とする。
-#if false
-        float Evaluate(
-            float time,
-            float outTangent, float outTime, float outValue, float outWeight,
-            float inTangent, float inTime, float inValue, float inWeight
-        ) {
-            var dt = inTime - outTime;
-            var owdt = outWeight * dt;
-            var iwdt = inWeight * dt;
-
-            // Bezier control points
-            // var x1 = outTime + owdt;
-            // var x2 = inTime - iwdt;
-            var y1 = outValue + owdt * outTangent;
-            var y2 = inValue - iwdt * inTangent;
-
-            // Solve x(t) = time for t (cubic equation)
-            // x(t) = (1-t)^3 x0 + 3(1-t)^2 t x1 + 3(1-t) t^2 x2 + t^3 x3
-            // var a = x3 - 3 * x2 + 3 * x1 - x0;
-            // var b = 3 * x0 - 6 * x1 + 3 * x2;
-            // var c = 3 * x1 - 3 * x0;
-            // var d = x0 - time;
-            float a, b, c, d;
-            {
-                var tmp = 3 * (dt - owdt - iwdt);
-                d = outTime - time;
-                c = 3 * owdt;
-                b = tmp - c;
-                a = dt - tmp;
-            }
-
-            // Cubic solver (approximate t using Newton's method or assume t range [0,1])
-            var t = (time - outTime) / dt; // Initial guess
-
-            // Newton iterations
-            for (int i = 0; i < 5; i++) {
-                var xt = a * t * t * t + b * t * t + c * t + d;
-                var dxdt = 3 * a * t * t + 2 * b * t + c;
-                if (dxdt == 0) break;
-                t -= xt / dxdt;
-                if (t < 0) t = 0;
-                if (t > 1) t = 1;
-            }
-
-            // Compute y(t)
-            var oneMinusT = 1 - t;
-            var oneMinusT2 = oneMinusT * oneMinusT;
-            var oneMinusT3 = oneMinusT2 * oneMinusT;
-            var t2 = t * t;
-            var t3 = t2 * t;
-
-            return oneMinusT3 * outValue + 3 * oneMinusT2 * t * y1 + 3 * oneMinusT * t2 * y2 + t3 * inValue;
-        }
-#endif
         public I17F15 Evaluate(I17F15 time) {
             switch (keys.Count) {
                 default: break;
@@ -413,6 +502,9 @@ namespace Intar {
                         TangentMode.Constant == r.GetLeftTangentMode()) {
                         return l.Value;
                     }
+                    if (l.HasOutWeight() || r.HasInWeight()) {
+                        return AnimationCurveEvaluator.BezierInterpolate(time, l, r, l.Value);
+                    }
                     return AnimationCurveEvaluator.HermiteInterpolate(time, l, r, l.Value);
                 }
             }
@@ -435,8 +527,12 @@ namespace Intar {
                         (float)key.Time,
                         (float)key.Value,
                         (float)key.InTangent,
-                        (float)key.OutTangent
-                    ));
+                        (float)key.OutTangent,
+                        (float)key.InWeight,
+                        (float)key.OutWeight
+                    ) {
+                        weightedMode = (UnityEngine.WeightedMode)key.WeightedMode,
+                    });
                 }
             }
             return curve;

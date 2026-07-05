@@ -107,9 +107,12 @@ namespace Intar.Editor {
                         var key = new Keyframe(
                             I17F15Drawer.FromBits(e.FindPropertyRelative("Time.Bits").intValue),
                             I17F15Drawer.FromBits(e.FindPropertyRelative("Value.Bits").intValue),
-                            inTangent, outTangent
+                            inTangent, outTangent,
+                            I17F15Drawer.FromBits(e.FindPropertyRelative("InWeight.Bits").intValue),
+                            I17F15Drawer.FromBits(e.FindPropertyRelative("OutWeight.Bits").intValue)
                         ) {
                             tangentMode = tangentMode,
+                            weightedMode = (UnityEngine.WeightedMode)e.FindPropertyRelative("WeightedMode").intValue,
                         };
 #pragma warning restore CS0618 // 型またはメンバーが旧型式です
                         _ = proxy.AddKey(key);
@@ -137,6 +140,9 @@ namespace Intar.Editor {
                     key.FindPropertyRelative("Value.Bits").intValue = I17F15Drawer.ToBits(k.value);
                     key.FindPropertyRelative("InTangent.Bits").intValue = Convert(k.inTangent);
                     key.FindPropertyRelative("OutTangent.Bits").intValue = Convert(k.outTangent);
+                    key.FindPropertyRelative("InWeight.Bits").intValue = I17F15Drawer.ToBits(k.inWeight);
+                    key.FindPropertyRelative("OutWeight.Bits").intValue = I17F15Drawer.ToBits(k.outWeight);
+                    key.FindPropertyRelative("WeightedMode").intValue = (int)k.weightedMode;
 #pragma warning disable CS0618 // 型またはメンバーが旧型式です
                     key.FindPropertyRelative("tangentMode").intValue = k.tangentMode;
 #pragma warning restore CS0618 // 型またはメンバーが旧型式です

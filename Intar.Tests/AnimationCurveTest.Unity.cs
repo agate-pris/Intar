@@ -578,6 +578,65 @@ namespace Intar.Tests {
         }
 
         /// <summary>
+        /// 重み付きの補間を UnityEngine.AnimationCurve と比較するテスト.
+        /// </summary>
+        /// <remarks>
+        /// カーブの接線が垂直に近い点では時間の微少な変化に対する
+        /// 評価値の感度が本質的に高く, 単純な絶対誤差での比較は適さない.
+        /// そのため UnityEngine.AnimationCurve を時間の近傍でも評価し,
+        /// その範囲を許容誤差だけ広げた区間に評価値が収まることを確認する.
+        /// </remarks>
+        [TestCase(2, 0.005F, 1000)]
+        [TestCase(3, 0.005F, 1000)]
+        [TestCase(4, 0.005F, 1000)]
+        public static void TestEvaluateWeightedRandom(int length, float delta, int testCount) {
+            for (var testIndex = 0; testIndex < testCount; testIndex++) {
+                var curve = new AnimationCurve();
+                var curveI17F15 = new AnimationCurveI17F15();
+                for (var i = 0; i < length; i++) {
+                    var t = (I17F15)(UnityEngine.Random.value + (i * 1.5F));
+                    var v = RandomValueI17F15();
+                    var inTangent = RandomTangentI17F15();
+                    var outTangent = RandomTangentI17F15();
+                    var inWeight = (I17F15)RandomWeight();
+                    var outWeight = (I17F15)RandomWeight();
+                    var mode = (WeightedMode)UnityEngine.Random.Range(0, 4);
+                    _ = curve.AddKey(new Keyframe(
+                        (float)t, (float)v,
+                        (float)inTangent, (float)outTangent,
+                        (float)inWeight, (float)outWeight
+                    ) {
+                        weightedMode = (UnityEngine.WeightedMode)mode,
+                    });
+                    _ = curveI17F15.AddKey(new KeyframeI17F15(
+                        t, v, inTangent, outTangent, inWeight, outWeight
+                    ) {
+                        WeightedMode = mode,
+                    });
+                }
+                var begin = curveI17F15[0].Time;
+                var end = curveI17F15[curveI17F15.Length - 1].Time;
+                for (var i = 0; i < 100; i++) {
+                    var t = (I17F15)UnityEngine.Random.Range((float)begin, (float)end);
+                    var a = (float)curveI17F15.Evaluate(t);
+
+                    // 時間の近傍 (前後 2 LSB) で UnityEngine.AnimationCurve を評価する.
+                    const float h = 2F / 32768;
+                    var lo = float.MaxValue;
+                    var hi = float.MinValue;
+                    for (var j = -1; j <= 1; j++) {
+                        var e = curve.Evaluate((float)t + (j * h));
+                        lo = Mathf.Min(lo, e);
+                        hi = Mathf.Max(hi, e);
+                    }
+                    if (a < lo - delta || a > hi + delta) {
+                        Assert.Fail($"testIndex:{testIndex} time:{t} actual:{a} expected:[{lo}, {hi}]");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// 周期長が 0 のカーブのテスト
         /// </summary>
         [TestCase(true)]
