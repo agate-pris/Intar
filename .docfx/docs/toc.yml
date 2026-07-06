@@ -9,3 +9,5 @@
   href: cites.md
 - name: 他のライブラリとの比較
   href: comparison.md
+- name: SIMD への対応方針
+  href: simd.md
