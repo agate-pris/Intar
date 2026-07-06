@@ -5,7 +5,7 @@
 {%- set component_u = macros::fixed_type(s=false, i=int_nbits, f=frac_nbits) %}
 {%- set bits = int_nbits+frac_nbits %}
 {%- set bits_type = macros::inttype(signed=true, bits=bits) %}
-{%- set dim = 2 %}
+{%- set dim = dim | default(value=2) %}
 {%- set vector = macros::vector_type(dim=dim, type=component) %}
 {%- set vector_repr = 'Vector' ~ dim ~ 'Int' ~ bits %}
 {%- set components = ['X', 'Y', 'Z', 'W']|slice(end=dim) %}
@@ -121,6 +121,8 @@ namespace {{ namespace }} {
                 {%- endfor -%}
             );
         }
+        {%- if dim == 2 %}
+        {#- Box{{ dim }} が未実装のため 2 次元に限定する #}
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public {{ type }}(Geometry.{{ box_type }} box) : this(
             new Geometry.{{ segment_type }}(box.P1, box.P2)
@@ -134,6 +136,7 @@ namespace {{ namespace }} {
             {%- endfor %}
             {%- endif %}
         }
+        {%- endif %}
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static {{ type }}? CheckedFromMinMax({{ vector }} min, {{ vector }} max) {
             if ({%- for c in components %}max.{{ c }} < min.{{ c }}
@@ -198,10 +201,13 @@ namespace {{ namespace }} {
         public void Encapsulate(Geometry.{{ segment_type }} a) {
             Encapsulate(new {{ type }}(a));
         }
+        {%- if dim == 2 %}
+        {#- Box{{ dim }} が未実装のため 2 次元に限定する #}
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Encapsulate(Geometry.{{ box_type }} a) {
             Encapsulate(new {{ type }}(a));
         }
+        {%- endif %}
         #endregion
         #region Intersects
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

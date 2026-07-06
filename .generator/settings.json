@@ -39,12 +39,15 @@
             "dir_path": "../{{ namespace }}",
             "template_name": "Aabb.cs",
             "files": [
+                {%- for d in [2, 3] %}
                 {
-                    "file_name": "Aabb2I17F15.gen.cs",
+                    "file_name": "Aabb{{ d }}I17F15.gen.cs",
                     "params": {
-                        "namespace": "{{ namespace }}"
+                        "namespace": "{{ namespace }}",
+                        "dim": {{ d }}
                     }
-                }
+                }{% if not loop.last %},{% endif %}
+                {%- endfor %}
             ]
         },
         {
@@ -92,7 +95,8 @@
             "dir_path": "../{{ namespace }}/Geometry",
             "template_name": "Circle.cs",
             "files": [
-                { "file_name": "CircleI17F15.gen.cs", "params": { "namespace": "{{ namespace }}" } }
+                { "file_name": "CircleI17F15.gen.cs", "params": { "namespace": "{{ namespace }}", "dim": 2 } },
+                { "file_name": "SphereI17F15.gen.cs", "params": { "namespace": "{{ namespace }}", "dim": 3 } }
             ]
         },
         {
@@ -262,10 +266,12 @@
             "dir_path": "../{{ namespace }}/Geometry",
             "template_name": "Segment.cs",
             "files": [
+                {%- for d in [2, 3] %}
                 {
-                    "file_name": "Segment2I17F15.gen.cs",
-                    "params": { "namespace": "{{ namespace }}" }
-                }
+                    "file_name": "Segment{{ d }}I17F15.gen.cs",
+                    "params": { "namespace": "{{ namespace }}", "dim": {{ d }} }
+                }{% if not loop.last %},{% endif %}
+                {%- endfor %}
             ]
         },
         {

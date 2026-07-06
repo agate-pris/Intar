@@ -1,10 +1,11 @@
 {%- import "macros.cs" as macros %}
-{%- set dim = 2 %}
+{%- set dim = dim | default(value=2) %}
 {%- set components = ['X', 'Y', 'Z', 'W']|slice(end=dim) %}
 {%- set component   = 'I17F15' %}
 {%- set component_u = 'U17F15' %}
 {%- if dim == 2 %}
-{%- set name = 'circle' %}{% set type = 'Circle' ~ component %}{% else %}
+{%- set name = 'circle' %}{% set type = 'Circle' ~ component %}{% elif dim == 3 %}
+{%- set name = 'sphere' %}{% set type = 'Sphere' ~ component %}{% else %}
 {{- throw(message='not implemented') }}
 {%- endif -%}
 using System;
@@ -227,7 +228,13 @@ namespace {{ namespace }}.Geometry {
             }
         }
         {%- else %}
-        {{ throw(message='not implemented') }}
+        public void Draw() {
+            var center = new Vector3(
+                (float)Center.X,
+                (float)Center.Y,
+                (float)Center.Z);
+            Gizmos.DrawWireSphere(center, (float)Radius);
+        }
         {%- endif %}
         public void Draw(AffineTransform3{{ component }} transform) {
             (transform * this).Draw({% if dim == 2 %}(float)transform.Translation.Z{% endif %});

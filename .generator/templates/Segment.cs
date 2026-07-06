@@ -5,12 +5,12 @@
 {%- set bits = macros::inttype(signed=true, bits=nbits) %}
 {%- set component      = macros::fixed_type(s=true, i=int_nbits,   f=frac_nbits  ) %}
 {%- set component_wide = macros::fixed_type(s=true, i=int_nbits*2, f=frac_nbits*2) %}
-{%- set dim = 2 %}
+{%- set dim = dim | default(value=2) %}
 {%- set components = ['X', 'Y', 'Z', 'W']|slice(end=dim) %}
 {%- set vector_type = macros::vector_type(dim=dim, type=component) %}
 {%- if dim == 2 %}
-{%- set circle_type = 'Circle' ~ component %}{% elif dim == 3 %}
-{%- set circle_type = 'Sphere' ~ component %}{% else %}
+{%- set name = 'circle' %}{% set circle_type = 'Circle' ~ component %}{% elif dim == 3 %}
+{%- set name = 'sphere' %}{% set circle_type = 'Sphere' ~ component %}{% else %}
 {{- throw(message='not implemented') }}
 {%- endif %}
 {%- set aabb_type = 'Aabb' ~ dim ~ component %}
@@ -108,7 +108,6 @@ namespace {{ namespace }}.Geometry {
             return new {{ aabb_type }}(this);
         }
         #endregion
-        {%- if dim == 2 %}
         #region ClosestPoint
         /// <summary>
         /// 線分上で最も点 p に近い点を求める。
@@ -152,6 +151,7 @@ namespace {{ namespace }}.Geometry {
         #region Intersects
 
         // 線分と点の交差判定は実装しない.
+        {%- if dim == 2 %}
 
         /// <summary>Check if the segment intersects with another segment.</summary>
         /// <param name="other">The segment to check.</param>
@@ -327,17 +327,18 @@ namespace {{ namespace }}.Geometry {
                 return {{ component_wide }}.Zero <= i && i <= g;
             }
         }
+        {%- endif %}
 
-        /// <summary>Check if the segment intersects with a circle.</summary>
-        /// <param name="circle">The circle to check.</param>
-        /// <returns>True if the segment intersects with the circle, false otherwise.</returns>
+        /// <summary>Check if the segment intersects with a {{ name }}.</summary>
+        /// <param name="{{ name }}">The {{ name }} to check.</param>
+        /// <returns>True if the segment intersects with the {{ name }}, false otherwise.</returns>
         /// <remarks>
         /// <div class="WARNING alert alert-info">
         /// <h5>WARNING</h5>
         /// <para>This method causes an <b>overflow</b> in the following case:</para>
         /// <list type="bullet">
         /// <item><description>The segment is very long.</description></item>
-        /// <item><description>The distance between the segment and the center of the circle is
+        /// <item><description>The distance between the segment and the center of the {{ name }} is
         /// very large.</description></item>
         /// </list>
         /// </div>
@@ -346,13 +347,14 @@ namespace {{ namespace }}.Geometry {
         /// </div>
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Intersects({{ circle_type }} circle) {
-            var closestPoint = ClosestPoint(circle.Center);
-            var distanceSquared = (closestPoint - circle.Center).LengthSquared();
-            return distanceSquared <= circle.Radius.BigMul(circle.Radius);
+        public bool Intersects({{ circle_type }} {{ name }}) {
+            var closestPoint = ClosestPoint({{ name }}.Center);
+            var distanceSquared = (closestPoint - {{ name }}.Center).LengthSquared();
+            return distanceSquared <= {{ name }}.Radius.BigMul({{ name }}.Radius);
         }
         #endregion
         #region Overlaps
+        {%- if dim == 2 %}
         /// <summary>Check if the segment overlaps with another segment.
         /// </summary>
         /// <param name="other">The segment to check.</param>
@@ -484,11 +486,12 @@ namespace {{ namespace }}.Geometry {
                 return {{ component_wide }}.Zero < i && i < g;
             }
         }
+        {%- endif %}
 
-        /// <summary>Check if the segment overlaps with a circle.
+        /// <summary>Check if the segment overlaps with a {{ name }}.
         /// </summary>
-        /// <param name="circle">The circle to check.</param>
-        /// <returns>True if the segment overlaps with the circle,
+        /// <param name="{{ name }}">The {{ name }} to check.</param>
+        /// <returns>True if the segment overlaps with the {{ name }},
         /// false otherwise.</returns>
         /// <remarks>
         /// <div class="WARNING alert alert-info">
@@ -499,7 +502,7 @@ namespace {{ namespace }}.Geometry {
         /// <item><description>The segment is very long.
         /// </description></item>
         /// <item><description>The distance between the segment and the
-        /// center of the circle is very large.</description></item>
+        /// center of the {{ name }} is very large.</description></item>
         /// </list>
         /// </div>
         /// <div class="NOTE alert alert-info">
@@ -508,20 +511,19 @@ namespace {{ namespace }}.Geometry {
         /// </div>
         /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Overlaps({{ circle_type }} circle) {
-            var closestPoint = ClosestPoint(circle.Center);
-            var distanceSquared = (closestPoint - circle.Center).LengthSquared();
-            return distanceSquared < circle.Radius.BigMul(circle.Radius);
+        public bool Overlaps({{ circle_type }} {{ name }}) {
+            var closestPoint = ClosestPoint({{ name }}.Center);
+            var distanceSquared = (closestPoint - {{ name }}.Center).LengthSquared();
+            return distanceSquared < {{ name }}.Radius.BigMul({{ name }}.Radius);
         }
         #endregion
-        {%- endif %}
 
 #if UNITY_EDITOR
 
         #region Draw
         public void Draw({% if dim == 2 %}float z{% endif %}) {
-            var p1 = new Vector3((float)P1.X, (float)P1.Y, {% if dim == 2 %}z{% else %}(float)P1.z{% endif %});
-            var p2 = new Vector3((float)P2.X, (float)P2.Y, {% if dim == 2 %}z{% else %}(float)P2.z{% endif %});
+            var p1 = new Vector3((float)P1.X, (float)P1.Y, {% if dim == 2 %}z{% else %}(float)P1.Z{% endif %});
+            var p2 = new Vector3((float)P2.X, (float)P2.Y, {% if dim == 2 %}z{% else %}(float)P2.Z{% endif %});
             Gizmos.DrawLine(p1, p2);
         }
         {%- if dim == 2 %}
