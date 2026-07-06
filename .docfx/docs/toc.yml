@@ -2,6 +2,10 @@
 - href: introduction.md
 - href: ../index.md
 
+- name: サンプル
+- name: 3 次元の座標変換とコライダー
+  href: transform3d.md
+
 - name: 付録
 - name: 特殊関数の近似の内部実装
   href: sp-func-impl.md
