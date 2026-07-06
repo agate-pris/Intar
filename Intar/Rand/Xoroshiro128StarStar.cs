@@ -52,6 +52,54 @@ namespace Intar.Rand {
             return (int)result;
         }
 
+        /// <summary>
+        /// 0 以上 1 未満の乱数を返す｡
+        /// </summary>
+        public U17F15 NextU17F15() {
+            return U17F15.FromBits((uint)NextUInt64(U17F15.OneRepr));
+        }
+
+        /// <summary>
+        /// 0 以上 <paramref name="maxValue" /> 未満の乱数を返す｡
+        /// </summary>
+        /// <param name="maxValue">乱数の排他的上限｡ 0 より大きい値でなければならない｡</param>
+        public U17F15 NextU17F15(U17F15 maxValue) {
+            return U17F15.FromBits((uint)NextUInt64(maxValue.Bits));
+        }
+
+        /// <summary>
+        /// <paramref name="minValue" /> 以上 <paramref name="maxValue" /> 未満の乱数を返す｡
+        /// </summary>
+        /// <param name="minValue">乱数の包括的下限｡</param>
+        /// <param name="maxValue">乱数の排他的上限｡ <paramref name="minValue" /> より大きい値でなければならない｡</param>
+        public U17F15 NextU17F15(U17F15 minValue, U17F15 maxValue) {
+            return U17F15.FromBits((uint)NextUInt64(minValue.Bits, maxValue.Bits));
+        }
+
+        /// <summary>
+        /// 0 以上 1 未満の乱数を返す｡
+        /// </summary>
+        public I17F15 NextI17F15() {
+            return I17F15.FromBits((int)NextInt64(I17F15.OneRepr));
+        }
+
+        /// <summary>
+        /// 0 以上 <paramref name="maxValue" /> 未満の乱数を返す｡
+        /// </summary>
+        /// <param name="maxValue">乱数の排他的上限｡ 0 より大きい値でなければならない｡</param>
+        public I17F15 NextI17F15(I17F15 maxValue) {
+            return I17F15.FromBits((int)NextInt64(maxValue.Bits));
+        }
+
+        /// <summary>
+        /// <paramref name="minValue" /> 以上 <paramref name="maxValue" /> 未満の乱数を返す｡
+        /// </summary>
+        /// <param name="minValue">乱数の包括的下限｡</param>
+        /// <param name="maxValue">乱数の排他的上限｡ <paramref name="minValue" /> より大きい値でなければならない｡</param>
+        public I17F15 NextI17F15(I17F15 minValue, I17F15 maxValue) {
+            return I17F15.FromBits((int)NextInt64(minValue.Bits, maxValue.Bits));
+        }
+
         public void Jump() {
             const ulong k1 = 0xdf900294d8f554a5UL;
             const ulong k2 = 0x170865df4b3201fcUL;

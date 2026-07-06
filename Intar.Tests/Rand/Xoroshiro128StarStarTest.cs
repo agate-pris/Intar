@@ -110,5 +110,57 @@ namespace Intar.Tests.Rand {
                 Console.WriteLine($"{kv.Key}: {kv.Value}");
             }
         }
+
+        [Test]
+        public static void NextU17F15Test() {
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            var min = U17F15.FromBits(1 << 14);
+            var max = U17F15.FromBits(3 << 14);
+            for (var i = 0; i < 9999; ++i) {
+                {
+                    var x = rng.NextU17F15();
+                    Assert.IsTrue(U17F15.Zero <= x && x < U17F15.One);
+                }
+                {
+                    var x = rng.NextU17F15(max);
+                    Assert.IsTrue(U17F15.Zero <= x && x < max);
+                }
+                {
+                    var x = rng.NextU17F15(min, max);
+                    Assert.IsTrue(min <= x && x < max);
+                }
+            }
+        }
+
+        [Test]
+        public static void NextI17F15Test() {
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            var min = I17F15.FromBits(-3 << 14);
+            var max = I17F15.FromBits(1 << 14);
+            for (var i = 0; i < 9999; ++i) {
+                {
+                    var x = rng.NextI17F15();
+                    Assert.IsTrue(I17F15.Zero <= x && x < I17F15.One);
+                }
+                {
+                    var x = rng.NextI17F15(max);
+                    Assert.IsTrue(I17F15.Zero <= x && x < max);
+                }
+                {
+                    var x = rng.NextI17F15(min, max);
+                    Assert.IsTrue(min <= x && x < max);
+                }
+            }
+        }
+
+        [Test]
+        public static void NextFixedDeterminismTest() {
+            var a = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            var b = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            for (var i = 0; i < 100; ++i) {
+                Utility.AssertAreEqual(a.NextU17F15().Bits, b.NextU17F15().Bits);
+                Utility.AssertAreEqual(a.NextI17F15(), b.NextI17F15());
+            }
+        }
     }
 }
