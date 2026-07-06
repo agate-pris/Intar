@@ -19,12 +19,13 @@ namespace Intar.Tests {
                         float.IsNaN(e.Y) &&
                         float.IsNaN(e.Z) &&
                         float.IsNaN(e.W));
+                } else {
+                    const double delta = 0.00004;
+                    Utility.AssertAreEqual(e.X, (float)a.Value.X, delta);
+                    Utility.AssertAreEqual(e.Y, (float)a.Value.Y, delta);
+                    Utility.AssertAreEqual(e.Z, (float)a.Value.Z, delta);
+                    Utility.AssertAreEqual(e.W, (float)a.Value.W, delta);
                 }
-                const double delta = 0.00004;
-                Utility.AssertAreEqual(e.X, (float)(a?.X ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.Y, (float)(a?.Y ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.Z, (float)(a?.Z ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.W, (float)(a?.W ?? I17F15.Zero), delta);
             }
         }
         static void Test(I17F15 x, I17F15 y, I17F15 z) {
@@ -41,11 +42,12 @@ namespace Intar.Tests {
                         float.IsNaN(e.X) &&
                         float.IsNaN(e.Y) &&
                         float.IsNaN(e.Z));
+                } else {
+                    const double delta = 0.00004;
+                    Utility.AssertAreEqual(e.X, (float)a.Value.X, delta);
+                    Utility.AssertAreEqual(e.Y, (float)a.Value.Y, delta);
+                    Utility.AssertAreEqual(e.Z, (float)a.Value.Z, delta);
                 }
-                const double delta = 0.00004;
-                Utility.AssertAreEqual(e.X, (float)(a?.X ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.Y, (float)(a?.Y ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.Z, (float)(a?.Z ?? I17F15.Zero), delta);
             }
             {
                 var a = q.LengthSquared();
@@ -70,10 +72,11 @@ namespace Intar.Tests {
                     Assert.IsTrue(
                         float.IsNaN(e.X) &&
                         float.IsNaN(e.Y));
+                } else {
+                    const double delta = 0.00004;
+                    Utility.AssertAreEqual(e.X, (float)a.Value.X, delta);
+                    Utility.AssertAreEqual(e.Y, (float)a.Value.Y, delta);
                 }
-                const double delta = 0.00004;
-                Utility.AssertAreEqual(e.X, (float)(a?.X ?? I17F15.Zero), delta);
-                Utility.AssertAreEqual(e.Y, (float)(a?.Y ?? I17F15.Zero), delta);
             }
             {
                 var a = q.LengthSquared();
