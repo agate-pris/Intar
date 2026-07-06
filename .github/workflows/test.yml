@@ -6,10 +6,46 @@ on:
       - main
       - develop
   pull_request:
+  schedule:
+    # Run the exhaustive tests weekly (Sunday 00:00 UTC)
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      exhaustive:
+        description: 'Run the exhaustive tests'
+        type: boolean
+        default: false
 
 jobs:
   test:
+    # Exclude the exhaustive tests which sweep (almost) the entire integer
+    # range and take too long on hosted runners.
+    if: github.event_name != 'schedule' && !(github.event_name == 'workflow_dispatch' && inputs.exhaustive)
     runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          5.0.x
+          6.0.x
+          7.0.x
+          8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore Intar.Tests/Intar.Tests.csproj
+
+    - name: Test
+      run: dotnet test Intar.Tests/Intar.Tests.csproj --configuration Release --no-restore --filter "TestCategory!=Exhaustive"
+
+  test-exhaustive:
+    # Run the exhaustive tests on a schedule or on demand.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.exhaustive)
+    runs-on: windows-latest
+    timeout-minutes: 360
 
     steps:
     - uses: actions/checkout@v4

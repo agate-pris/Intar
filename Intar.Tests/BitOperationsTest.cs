@@ -50,6 +50,36 @@ namespace Intar.Tests {
 
         [Test]
         public static void TestLeadingZeroCountUint() {
+            Utility.AssertAreEqual(32, BitOperations.LeadingZeroCount(0U));
+            Utility.AssertAreEqual(0, BitOperations.LeadingZeroCount(uint.MaxValue));
+            for (var i = 0; i < 32; ++i) {
+                var x = 1U << i;
+                Utility.AssertAreEqual(31 - i, BitOperations.LeadingZeroCount(x));
+                Utility.AssertAreEqual(i == 31 ? 1 : 0, BitOperations.LeadingZeroCount(~x));
+
+                for (var j = i + 1; j < 32; ++j) {
+                    var y = 1U << j;
+                    Utility.AssertAreEqual(31 - j, BitOperations.LeadingZeroCount(x | y));
+                    Utility.AssertAreEqual(j == 31 ? (i == 30 ? 2 : 1) : 0, BitOperations.LeadingZeroCount(~(x | y)));
+                }
+            }
+
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            for (var i = 0; i < 99999; ++i) {
+                var x = unchecked((uint)rng.Next());
+                var expected = LeadingZeroCount(x);
+                var actual = BitOperations.LeadingZeroCount(x);
+                if (expected != actual) {
+                    Assert.Fail();
+                }
+            }
+        }
+
+        // uint の全数走査を行うため非常に時間がかかる.
+        // 継続的インテグレーションでは実行しない.
+        [Test]
+        [Category("Exhaustive")]
+        public static void TestLeadingZeroCountUintExhaustive() {
             Utility.AssertAreEqual(0, BitOperations.LeadingZeroCount(uint.MaxValue));
 
             var processorCount = Environment.ProcessorCount;
@@ -104,6 +134,36 @@ namespace Intar.Tests {
 
         [Test]
         public static void TestPopCountUint() {
+            Utility.AssertAreEqual(0, BitOperations.PopCount(0U));
+            Utility.AssertAreEqual(32, BitOperations.PopCount(uint.MaxValue));
+            for (var i = 0; i < 32; ++i) {
+                var x = 1U << i;
+                Utility.AssertAreEqual(1, BitOperations.PopCount(x));
+                Utility.AssertAreEqual(31, BitOperations.PopCount(~x));
+
+                for (var j = i + 1; j < 32; ++j) {
+                    var y = 1U << j;
+                    Utility.AssertAreEqual(2, BitOperations.PopCount(x | y));
+                    Utility.AssertAreEqual(30, BitOperations.PopCount(~(x | y)));
+                }
+            }
+
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            for (var i = 0; i < 99999; ++i) {
+                var x = unchecked((uint)rng.Next());
+                var expected = PopCount(x);
+                var actual = BitOperations.PopCount(x);
+                if (expected != actual) {
+                    Assert.Fail();
+                }
+            }
+        }
+
+        // uint の全数走査を行うため非常に時間がかかる.
+        // 継続的インテグレーションでは実行しない.
+        [Test]
+        [Category("Exhaustive")]
+        public static void TestPopCountUintExhaustive() {
             Utility.AssertAreEqual(32, BitOperations.PopCount(uint.MaxValue));
 
             var processorCount = Environment.ProcessorCount;

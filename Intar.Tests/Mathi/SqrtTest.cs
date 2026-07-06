@@ -6,6 +6,37 @@ namespace Intar.Tests.Mathi {
         [Test]
         public static void TestSqrtUint() {
             const uint max = 0xffff;
+            Utility.AssertAreEqual(0U, Intar.Mathi.Sqrt(0U));
+            Utility.AssertAreEqual(max, Intar.Mathi.Sqrt(uint.MaxValue));
+
+            // 完全平方数とその前後の値を確認する.
+            for (var y = 1U; y <= max; ++y) {
+                Utility.AssertAreEqual(y, Intar.Mathi.Sqrt(y * y));
+                Utility.AssertAreEqual(y - 1, Intar.Mathi.Sqrt((y * y) - 1));
+            }
+
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            for (var i = 0; i < 99999; ++i) {
+                var x = unchecked((uint)rng.Next());
+                var actual = Intar.Mathi.Sqrt(x);
+                if (x < actual * actual) {
+                    Assert.Fail();
+                }
+                if (actual != max) {
+                    var incremented = actual + 1;
+                    if (x >= incremented * incremented) {
+                        Assert.Fail();
+                    }
+                }
+            }
+        }
+
+        // uint の全数走査を行うため非常に時間がかかる.
+        // 継続的インテグレーションでは実行しない.
+        [Test]
+        [Category("Exhaustive")]
+        public static void TestSqrtUintExhaustive() {
+            const uint max = 0xffff;
             Utility.AssertAreEqual(max, Intar.Mathi.Sqrt(uint.MaxValue));
 
             var processorCount = System.Environment.ProcessorCount;
@@ -29,6 +60,34 @@ namespace Intar.Tests.Mathi {
 
         [Test]
         public static void IsqrtTestUlong() {
+            const ulong max = 0xffff_ffff;
+            Utility.AssertAreEqual(0, Intar.Mathi.Sqrt(0UL));
+            Utility.AssertAreEqual(max, Intar.Mathi.Sqrt(ulong.MaxValue));
+
+            // 完全平方数とその前後の値を確認する.
+            var rng = new Intar.Rand.Xoroshiro128StarStar(1, 2);
+            for (var i = 0; i < 99999; ++i) {
+                var y = 1 + rng.NextUInt64(0xffff_ffff);
+                {
+                    var actual = Intar.Mathi.Sqrt(y * y);
+                    if (actual != y) {
+                        Assert.Fail($"y: {y}, actual: {actual}");
+                    }
+                }
+                {
+                    var actual = Intar.Mathi.Sqrt((y * y) - 1);
+                    if (actual != y - 1) {
+                        Assert.Fail($"y: {y}, actual: {actual}");
+                    }
+                }
+            }
+        }
+
+        // 32 ビット範囲の値の全数走査を行うため非常に時間がかかる.
+        // 継続的インテグレーションでは実行しない.
+        [Test]
+        [Category("Exhaustive")]
+        public static void IsqrtTestUlongExhaustive() {
             const ulong max = 0xffff_ffff;
             Utility.AssertAreEqual(0, Intar.Mathi.Sqrt(0UL));
             Utility.AssertAreEqual(max, Intar.Mathi.Sqrt(ulong.MaxValue));
